@@ -1,0 +1,16 @@
+{
+  "name": "scripto",
+  "version": "1.0.0",
+  "description": "",
+  "main": "index.js",
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1",
+    "run dev": "npx ts-node nft-create.ts"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "ISC",
+  "devDependencies": {
+    "avalanche": "^3.0.1"
+  }
+}
