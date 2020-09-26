@@ -12,5 +12,8 @@
   "license": "ISC",
   "devDependencies": {
     "avalanche": "^3.0.1"
+  },
+  "dependencies": {
+    "typescript": "^4.0.3"
   }
 }

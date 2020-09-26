@@ -96,12 +96,7 @@ let outs: TransferableOutput[] = []
 let ops: TransferableOperation[] = []
 const mstimeout: number = 5000
 
-const main = async (): Promise<any> => {
-
-    // ===========================================
-    // First we will create an asset for our NFT .
-    // ===========================================
-
+async function createNewNFTAsset() {
     const assetID: Buffer = await avm.getAVAXAssetID()
     let result: any = await avm.getBalance(xAddressStrings[0], bintools.cb58Encode(assetID))
     let balance: BN = new BN(result.balance)
@@ -167,17 +162,38 @@ const main = async (): Promise<any> => {
     let id: string = await avm.issueTx(tx)
     console.log(id)
     await sleep(mstimeout)
+    return {
+        assetID,
+        result,
+        balance,
+        fee,
+        avaxAmount,
+        secpOutput,
+        transferableOutput,
+        utxo,
+        output,
+        amt,
+        txid,
+        outputidx,
+        secpInput,
+        transferableInput,
+        groupID,
+        unsignedTx,
+        tx,
+        id
+    };
+}
 
-    // Now we can Mint our NFT .
+async function mintNFT(assetID, fee, groupID: number, id: string) {
     ins = []
     outs = []
 
     // Again here we fetch the fee, create the output which will contain the balance - fee .
-    result = await avm.getBalance(xAddressStrings[0], bintools.cb58Encode(assetID))
-    balance = new BN(result.balance)
-    avaxAmount = balance.sub(fee)
-    secpOutput = new SECPTransferOutput(avaxAmount, xAddresses, locktime, threshold)
-    transferableOutput = new TransferableOutput(assetID, secpOutput)
+    let result: any = await avm.getBalance(xAddressStrings[0], bintools.cb58Encode(assetID))
+    let balance = new BN(result.balance)
+    let avaxAmount = balance.sub(fee)
+    let secpOutput = new SECPTransferOutput(avaxAmount, xAddresses, locktime, threshold)
+    let transferableOutput = new TransferableOutput(assetID, secpOutput)
     outs.push(transferableOutput)
 
     // We prepare the Mint Operation
@@ -192,20 +208,20 @@ const main = async (): Promise<any> => {
     let secpUTXOIDs: string[] = getUTXOIDs(utxoSet2, id, AVMConstants.SECPXFEROUTPUTID)
     let secpUtxo: UTXO = utxoSet2.getUTXO(secpUTXOIDs[0])
 
-    output = secpUtxo.getOutput() as AmountOutput
-    amt = output.getAmount().clone()
-    txid = secpUtxo.getTxID()
-    outputidx = secpUtxo.getOutputIdx()
+    let output = secpUtxo.getOutput() as AmountOutput
+    let amt = output.getAmount().clone()
+    let txid = secpUtxo.getTxID()
+    let outputidx = secpUtxo.getOutputIdx()
 
-    secpInput = new SECPTransferInput(amt)
+    let secpInput = new SECPTransferInput(amt)
     secpInput.addSignatureIdx(0, xAddresses[0])
 
-    transferableInput = new TransferableInput(txid, outputidx, assetID, secpInput)
+    let transferableInput = new TransferableInput(txid, outputidx, assetID, secpInput)
     ins.push(transferableInput)
 
     let utxoids: string[] = getUTXOIDs(utxoSet2, id, AVMConstants.NFTMINTOUTPUTID)
 
-    utxo = utxoSet2.getUTXO(utxoids[0])
+    let utxo = utxoSet2.getUTXO(utxoids[0])
     let out: NFTTransferOutput = utxo.getOutput() as NFTTransferOutput
     let spenders: Buffer[] = out.getSpenders(xAddresses)
 
@@ -218,42 +234,66 @@ const main = async (): Promise<any> => {
     ops.push(transferableOperation)
 
     let operationTx: OperationTx = new OperationTx(networkID, blockchainID, outs, ins, Buffer.from("AVHAT"), ops)
-    unsignedTx = new UnsignedTx(operationTx)
-    tx = unsignedTx.sign(xKeychain)
+    let unsignedTx = new UnsignedTx(operationTx)
+    let tx = unsignedTx.sign(xKeychain)
     let mint_tx_id = await avm.issueTx(tx)
     console.log(`MINT NFT TX ID ${mint_tx_id}`)
     await sleep(mstimeout)
+    return {
+        result,
+        balance,
+        avaxAmount,
+        secpOutput,
+        transferableOutput,
+        secpUTXOIDs,
+        secpUtxo,
+        output,
+        amt,
+        txid,
+        outputidx,
+        secpInput,
+        transferableInput,
+        utxoids,
+        utxo,
+        out,
+        spenders,
+        operationTx,
+        unsignedTx,
+        tx,
+        mint_tx_id
+    };
+}
 
-    // step 3 transfer NFT
+async function transsferNFT(assetID, fee, mint_tx_id, out) {
     ins = []
     outs = []
     ops = []
-    result = await avm.getBalance(xAddressStrings[0], bintools.cb58Encode(assetID))
-    balance = new BN(result.balance)
-    avaxAmount = balance.sub(fee)
-    secpOutput = new SECPTransferOutput(avaxAmount, xAddresses, locktime, threshold)
-    transferableOutput = new TransferableOutput(assetID, secpOutput)
+    let result: any = await avm.getBalance(xAddressStrings[0], bintools.cb58Encode(assetID))
+    let balance = new BN(result.balance)
+    let avaxAmount = balance.sub(fee)
+    let secpOutput = new SECPTransferOutput(avaxAmount, xAddresses, locktime, threshold)
+    let transferableOutput = new TransferableOutput(assetID, secpOutput)
     outs.push(transferableOutput)
     let {utxos: utxoSet3} = await avm.getUTXOs(xAddressStrings)
-    secpUTXOIDs = getUTXOIDs(utxoSet3, mint_tx_id, AVMConstants.SECPXFEROUTPUTID)
-    secpUtxo = utxoSet3.getUTXO(secpUTXOIDs[0])
+    let secpUTXOIDs = getUTXOIDs(utxoSet3, mint_tx_id, AVMConstants.SECPXFEROUTPUTID)
+    let secpUtxo = utxoSet3.getUTXO(secpUTXOIDs[0])
 
-    output = secpUtxo.getOutput() as AmountOutput
-    amt = output.getAmount().clone()
-    txid = secpUtxo.getTxID()
-    outputidx = secpUtxo.getOutputIdx()
+    let output = secpUtxo.getOutput() as AmountOutput
+    let amt = output.getAmount().clone()
+    let txid = secpUtxo.getTxID()
+    let outputidx = secpUtxo.getOutputIdx()
 
-    secpInput = new SECPTransferInput(amt)
+    let secpInput = new SECPTransferInput(amt)
     secpInput.addSignatureIdx(0, xAddresses[0])
 
-    transferableInput = new TransferableInput(txid, outputidx, assetID, secpInput)
+    let transferableInput = new TransferableInput(txid, outputidx, assetID, secpInput)
     ins.push(transferableInput)
 
-    utxoids = getUTXOIDs(utxoSet3, mint_tx_id, AVMConstants.NFTXFEROUTPUTID)
+    let utxoids = getUTXOIDs(utxoSet3, mint_tx_id, AVMConstants.NFTXFEROUTPUTID)
 
-    utxo = utxoSet3.getUTXO(utxoids[0])
+    let utxo = utxoSet3.getUTXO(utxoids[0])
     out = utxo.getOutput() as NFTTransferOutput
-    spenders = out.getSpenders(xAddresses)
+    let spenders = out.getSpenders(xAddresses)
 
     // Address to which we will send the newly minted NFT
     const xaddy: Buffer = bintools.stringToAddress("X-local1ax8r353sm3k5jj0cm6ef2e2c5zs6lyjuup7p2h")
@@ -271,11 +311,26 @@ const main = async (): Promise<any> => {
     const xferop: TransferableOperation = new TransferableOperation(utxo.getAssetID(), [utxoids[0]], op)
     ops.push(xferop)
 
-    operationTx = new OperationTx(networkID, blockchainID, outs, ins, memos[0], ops)
-    unsignedTx = new UnsignedTx(operationTx)
-    tx = unsignedTx.sign(xKeychain)
+    let operationTx = new OperationTx(networkID, blockchainID, outs, ins, memos[0], ops)
+    let unsignedTx = new UnsignedTx(operationTx)
+    let tx = unsignedTx.sign(xKeychain)
     let new_id = await avm.issueTx(tx)
     console.log(`TRF NFT TX ID ${new_id}`)
+}
+
+const main = async (): Promise<any> => {
+
+    // ===========================================
+    // First we will create an asset for our NFT .
+    // ===========================================
+
+    let {assetID, fee, groupID, id} = await createNewNFTAsset();
+
+    // Now we can Mint our NFT .
+    let {out, mint_tx_id} = await mintNFT(assetID, fee, groupID, id);
+
+    // step 3 transfer NFT
+    await transsferNFT(assetID, fee, mint_tx_id, out);
 }
 
 main()
