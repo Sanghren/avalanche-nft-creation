@@ -5,15 +5,15 @@
   "main": "index.js",
   "scripts": {
     "test": "echo \"Error: no test specified\" && exit 1",
+    "run hard dev": "npx ts-node nft-create-the-hard-way.ts",
     "run dev": "npx ts-node nft-create.ts"
   },
   "keywords": [],
   "author": "",
   "license": "ISC",
-  "devDependencies": {
-    "avalanche": "^3.0.1"
-  },
+  "devDependencies": {},
   "dependencies": {
-    "typescript": "^4.0.3"
+    "typescript": "^4.0.3",
+    "avalanche": "^3.0.1"
   }
 }
