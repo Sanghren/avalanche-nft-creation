@@ -78,7 +78,8 @@ async function createNewNFTAsset() {
     let tx: Tx = unsignedTx.sign(xKeychain);
     let txid: string = await avm.issueTx(tx)
     await sleep(mstimeout)
-
+    let t = await avm.getTxStatus(txid);
+    console.log(t);
     console.log(`Create NFT Asset Success: ${txid}`)
     return txid;
 }
@@ -91,8 +92,19 @@ async function mintNFT(assetID: string, memo: Buffer) {
         let owner = new OutputOwners([xAddresses[0]], new BN(0), 1);
         owners.push(owner)
     }
+    let mintUtxo: string;
+    for (let utxoiD of utxos.getUTXOIDs()) {
+        if(utxoiD.slice(0,10) === assetID.slice(0,10)){
+            console.log(`${assetID} -- ${utxoiD}`);
+            mintUtxo = utxoiD;
+            break;
+        } else {
+            console.log("NOP")
+        }
+    }
 
-    let mintTx = await avm.buildCreateNFTMintTx(utxos, owners, xAddressStrings, xAddressStrings, assetID, 0, memo)
+    console.log('\n\n\n')
+    let mintTx = await avm.buildCreateNFTMintTx(utxos, owners, xAddressStrings, xAddressStrings, mintUtxo, 0, memo)
     let signedTx = mintTx.sign(xKeychain);
 
     let txId = await avm.issueTx(signedTx);
