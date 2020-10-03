@@ -95,6 +95,25 @@ let ins: TransferableInput[] = []
 let outs: TransferableOutput[] = []
 const mstimeout: number = 2000
 
+
+async function selectUtxoWithEnoughAvax() {
+    // We fetch the UTXOs of the current address
+    let {utxos: utxoSet} = await avm.getUTXOs(xAddressStrings, 'X', 2048)
+
+    // Here we select one UTXO where there is enough AVAX to pay for the fee .
+    let utxos: UTXO[] = utxoSet.getAllUTXOs().filter(u => u.getOutput().getTypeName() === 'SECPTransferOutput' && u.getOutput().getOutputID() === 7)
+    let utxo: UTXO;
+    for (let aUtxo of utxos) {
+        let output: AmountOutput = aUtxo.getOutput() as AmountOutput
+        let amt: BN = output.getAmount().clone()
+        if (amt > new BN(100000000)) {
+            utxo = aUtxo
+            break;
+        }
+    }
+    return utxo;
+}
+
 async function createNewNFTAsset() {
     const assetID: Buffer = await avm.getAVAXAssetID()
     let result: any = await avm.getBalance(xAddressStrings[0], bintools.cb58Encode(assetID))
@@ -108,20 +127,7 @@ async function createNewNFTAsset() {
     let transferableOutput: TransferableOutput = new TransferableOutput(assetID, secpOutput)
     outs.push(transferableOutput)
 
-    // We fetch the UTXOs of the current address
-    let {utxos: utxoSet} = await avm.getUTXOs(xAddressStrings)
-
-    // Here we select one UTXO where there is enough AVAX to pay for the fee .
-    let utxos: UTXO[] = utxoSet.getAllUTXOs().filter(u => u.getOutput().getTypeName() === 'SECPTransferOutput' && u.getOutput().getOutputID() === 7)
-    let utxo: UTXO;
-    for (let aUtxo of utxos) {
-        let output: AmountOutput = aUtxo.getOutput() as AmountOutput
-        let amt: BN = output.getAmount().clone()
-        if (amt > new BN(100000000)) {
-            utxo = aUtxo
-            break;
-        }
-    }
+    let utxo = await selectUtxoWithEnoughAvax();
 
     let output: AmountOutput = utxo.getOutput() as AmountOutput
     let amt: BN = output.getAmount().clone()
@@ -180,23 +186,12 @@ async function mintNFT(assetID, fee, groupID: number, id: string, memo: Buffer) 
     // ToDo Still no clue what 'groupID' represent exactly here .
     console.log(`PAYLOAD - ${bintools.bufferToB58(memo)}`)
     const nftMintOperation: NFTMintOperation = new NFTMintOperation(groupID, memo, [new OutputOwners(xAddresses, locktime, threshold)])
-    // We fetch the latest UTXOs for our addresses.
-    let {utxos: utxoSet2} = await avm.getUTXOs(xAddressStrings)
-    // We specifically want to find one that refer to a 'Transfer' for a specific 'id'
-    // Don't forget that TxID === AssetId . If am not wrong .
-    // Here we select one UTXO where there is enough AVAX to pay for the fee .
-    // Here we select one UTXO where there is enough AVAX to pay for the fee .
-    let utxos: UTXO[] = utxoSet2.getAllUTXOs().filter(u => u.getOutput().getTypeName() === 'SECPTransferOutput' && u.getOutput().getOutputID() === 7)
-    let utxo: UTXO;
-    for (let aUtxo of utxos) {
-        let output: AmountOutput = aUtxo.getOutput() as AmountOutput
-        let amt: BN = output.getAmount().clone()
 
-        if (amt > new BN(10000000)) {
-            utxo = aUtxo
-            break;
-        }
-    }
+    let {utxos: utxoSet} = await avm.getUTXOs(xAddressStrings)
+
+
+    let utxo = await selectUtxoWithEnoughAvax();
+
 
     let output: AmountOutput = utxo.getOutput() as AmountOutput
     let amt: BN = output.getAmount().clone()
@@ -209,9 +204,9 @@ async function mintNFT(assetID, fee, groupID: number, id: string, memo: Buffer) 
     let transferableInput: TransferableInput = new TransferableInput(txid, outputidx, assetID, secpInput)
     ins.push(transferableInput)
 
-    let utxoids: string[] = getUTXOIDs(utxoSet2, id, AVMConstants.NFTMINTOUTPUTID)
+    let utxoids: string[] = getUTXOIDs(utxoSet, id, AVMConstants.NFTMINTOUTPUTID)
 
-    utxo = utxoSet2.getUTXO(utxoids[0])
+    utxo = utxoSet.getUTXO(utxoids[0])
     let out: NFTTransferOutput = utxo.getOutput() as NFTTransferOutput
     let spenders: Buffer[] = out.getSpenders(xAddresses)
 
@@ -246,18 +241,11 @@ async function transferNFT(assetID, fee, mint_tx_id) {
     let secpOutput = new SECPTransferOutput(avaxAmount, xAddresses, locktime, threshold)
     let transferableOutput = new TransferableOutput(assetID, secpOutput)
     outs.push(transferableOutput)
-    let {utxos: utxoSet3} = await avm.getUTXOs(xAddressStrings, 'X', 1024)
-    let utxos: UTXO[] = utxoSet3.getAllUTXOs().filter(u => u.getOutput().getTypeName() === 'SECPTransferOutput' && u.getOutput().getOutputID() === 7)
-    let utxo: UTXO;
-    for (let aUtxo of utxos) {
-        let output: AmountOutput = aUtxo.getOutput() as AmountOutput
-        let amt: BN = output.getAmount().clone()
-        // We select a UTXO with enough avax in it .
-        if (amt > new BN(10000000)) {
-            utxo = aUtxo
-            break;
-        }
-    }
+
+    let {utxos: utxoSet} = await avm.getUTXOs(xAddressStrings)
+
+
+    let utxo = await selectUtxoWithEnoughAvax();
 
     let output: AmountOutput = utxo.getOutput() as AmountOutput
     let amt: BN = output.getAmount().clone()
@@ -270,9 +258,9 @@ async function transferNFT(assetID, fee, mint_tx_id) {
     let transferableInput: TransferableInput = new TransferableInput(txid, outputidx, assetID, secpInput)
     ins.push(transferableInput)
 
-    let utxoids = getUTXOIDs(utxoSet3, mint_tx_id, AVMConstants.NFTXFEROUTPUTID)
+    let utxoids = getUTXOIDs(utxoSet, mint_tx_id, AVMConstants.NFTXFEROUTPUTID)
 
-    utxo = utxoSet3.getUTXO(utxoids[0])
+    utxo = utxoSet.getUTXO(utxoids[0])
     let out = utxo.getOutput() as NFTTransferOutput
     let spenders = out.getSpenders(xAddresses)
 
