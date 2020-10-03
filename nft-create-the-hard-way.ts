@@ -90,8 +90,6 @@ console.log(xAddressStrings)
 
 const locktime: BN = new BN(0)
 const threshold: number = 1
-let ins: TransferableInput[] = []
-let outs: TransferableOutput[] = []
 const mstimeout: number = 2000
 
 
@@ -113,18 +111,12 @@ async function selectUtxoWithEnoughAvax() {
     return utxo;
 }
 
-async function createNewNFTAsset() {
-    const assetID: Buffer = await avm.getAVAXAssetID()
-    let result: any = await avm.getBalance(xAddressStrings[0], bintools.cb58Encode(assetID))
-    let balance: BN = new BN(result.balance)
-    let fee: BN = avm.getCreationTxFee()
+async function createNewNFTAsset(assetID, createFee) {
+    let ins: TransferableInput[] = []
+    let outs: TransferableOutput[] = []
 
-    // We substract the fee of the current balance
-    let avaxAmount: BN = balance.sub(fee)
-    // We create one of the output of our Tx (Balance in AVAX - fee)
-    let secpOutput: SECPTransferOutput = new SECPTransferOutput(avaxAmount, xAddresses, locktime, threshold)
-    let transferableOutput: TransferableOutput = new TransferableOutput(assetID, secpOutput)
-    outs.push(transferableOutput)
+    await substractFee(outs, assetID, createFee);
+
 
     let utxo = await selectUtxoWithEnoughAvax();
 
@@ -172,17 +164,21 @@ async function createNewNFTAsset() {
     return id;
 }
 
-async function mintNFT(assetID, fee, groupID: number, id: string, memo: Buffer) {
-    ins = []
-    outs = []
-
-    // Again here we fetch the fee, create the output which will contain the balance - fee .
+async function substractFee(outs, assetID, fee) {
     let result: any = await avm.getBalance(xAddressStrings[0], bintools.cb58Encode(assetID))
     let balance = new BN(result.balance)
     let avaxAmount = balance.sub(fee)
     let secpOutput = new SECPTransferOutput(avaxAmount, xAddresses, locktime, threshold)
     let transferableOutput = new TransferableOutput(assetID, secpOutput)
     outs.push(transferableOutput)
+}
+
+async function mintNFT(assetID, fee, groupID: number, id: string, memo: Buffer) {
+    let ins: TransferableInput[] = []
+    let outs: TransferableOutput[] = []
+
+    // Again here we fetch the fee, create the output which will contain the balance - fee .
+    await substractFee(outs, assetID, fee);
 
     // ToDo Still no clue what 'groupID' represent exactly here .
     console.log(`PAYLOAD - ${bintools.bufferToB58(memo)}`)
@@ -233,9 +229,10 @@ async function mintNFT(assetID, fee, groupID: number, id: string, memo: Buffer) 
 }
 
 async function transferNFT(assetID, fee, mint_tx_id) {
-    ins = []
-    outs = []
+    let ins: TransferableInput[] = []
+    let outs: TransferableOutput[] = []
     let ops: TransferableOperation[] = []
+
     let result: any = await avm.getBalance(xAddressStrings[0], bintools.cb58Encode(assetID))
     let balance = new BN(result.balance)
     let avaxAmount = balance.sub(fee)
@@ -302,16 +299,17 @@ const main = async (): Promise<any> => {
     // First we will create an asset for our NFT .
     // ===========================================
     let mintTxs = [];
-    const nft_id = await createNewNFTAsset();
     const assetID: Buffer = await avm.getAVAXAssetID()
     let trffee: BN = avm.getTxFee()
-    let fee: BN = avm.getCreationTxFee()
+    let createFee: BN = avm.getCreationTxFee()
+    const nft_id = await createNewNFTAsset(assetID, createFee);
+
     const groupID: number = 42
 
     // Now we can Mint our NFT .
     for (let memo of memos) {
         console.log('Minting a new NFT !!!!!');
-        const mint_tx_id = await mintNFT(assetID, fee, groupID, nft_id, memo);
+        const mint_tx_id = await mintNFT(assetID, trffee, groupID, nft_id, memo);
         mintTxs.push(mint_tx_id);
         console.log(`MintNFTAsset tx id -- ${mint_tx_id}`)
     }
