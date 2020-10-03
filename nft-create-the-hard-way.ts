@@ -1,7 +1,6 @@
 import { URLPayload } from "avalanche/dist/utils";
 import { Avalanche, BinTools, BN } from "avalanche"
 import { Buffer } from "buffer/";
-
 import {
     AmountOutput,
     AVMAPI,
@@ -147,7 +146,9 @@ async function createNewNFTAsset() {
     // Not sure what the 'groupID' represent .
     const groupID: number = 42
 
-    // Create the groups
+    // Create the minter set .
+    // It will create X amount of UTXO with `NFTMINTOUTPUTID` as type .
+    // Those can be consumed by address present in the minterSet in a nftMint operation .
     for (var i = 0; i < 100; i++) {
         const minterSet: MinterSet = new MinterSet(1, xAddresses)
         // Threshold represent the number of signatures we need in order to mint a new asset .
