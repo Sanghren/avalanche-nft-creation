@@ -14,6 +14,7 @@
   "devDependencies": {},
   "dependencies": {
     "typescript": "^4.0.3",
+    "buffer": "5.5.0",
     "avalanche": "^3.0.1"
   }
 }

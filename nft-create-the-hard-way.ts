@@ -1,6 +1,7 @@
 import { URLPayload } from "avalanche/dist/utils";
 import { Avalanche, BinTools, BN } from "avalanche"
-import { Buffer } from 'buffer/'
+import { Buffer } from "buffer/";
+
 import {
     AmountOutput,
     AVMAPI,
@@ -30,15 +31,14 @@ const sleep = (ms: number): Promise<unknown> => {
     return new Promise(resolve => setTimeout(resolve, ms))
 }
 
-// Here we look for a specific UTXO  (txId correspond to the assetId of the NFT)
+// This small helper function will go through the UTXOs present in the `utxoSet`. It will look for one with
+// a specific `txid`, and a specific `outputType` .
 const getUTXOIDs = (utxoSet: UTXOSet, txid: string, outputType: number = AVMConstants.SECPMINTOUTPUTID): string[] => {
     const utxoids: string[] = utxoSet.getUTXOIDs()
     let result: string[] = []
     for (let index: number = 0; index < utxoids.length; ++index) {
-        console.log(`We are looking for : ${outputType} -- ${txid.slice(0, 10)} -- Curent utxoid ${utxoids[index]} -- ${utxoSet.getUTXO(utxoids[index]).getOutput().getOutputID()}`)
         if (utxoids[index].indexOf(txid.slice(0, 10)) !== -1 && utxoSet.getUTXO(utxoids[index]) && utxoSet.getUTXO(utxoids[index]).getOutput().getOutputID() === outputType) {
-            if(result.length === 0) {
-                console.log("--- OYH ---")
+            if (result.length === 0) {
                 result.push(utxoids[index])
             }
         }
@@ -53,13 +53,11 @@ const networkID: number = 12345
 const port: number = 9650
 const avalanche: Avalanche = new Avalanche(ip, port, protocol, networkID)
 
-//
 const bintools: BinTools = BinTools.getInstance()
 const avm: AVMAPI = avalanche.XChain()
 const blockchainID: Buffer = bintools.cb58Decode(avm.getBlockchainID())
 const xKeychain: KeyChain = avm.keyChain()
 
-//ToDo Uh ?
 const imgs = [
     "https://i.ibb.co/hs6CW8j/brown-Copy.png",
     "https://i.ibb.co/yQ8hfwB/turquese.png",
@@ -71,23 +69,22 @@ const imgs = [
     "https://i.ibb.co/ydXY8bD/pink.png",
     "https://i.ibb.co/mqfx1NJ/strong-red.png"
 ]
-// const imgs = [
-//     "https://i.ibb.co/mqfx1NJ/strong-red.png"
-// ]
 
 const memos = [];
+
+// Here we will convert the url to a base58 payload .
 for (let img of imgs) {
-    memos.push(new URLPayload(Buffer.from(img)).getPayload())
-    console.log(new URLPayload(Buffer.from(img)).getPayload())
+    memos.push((new URLPayload(img)).getPayload())
+    console.log(bintools.bufferToB58(bintools.addChecksum(new URLPayload(Buffer.from(img)).getPayload())))
 }
 
 // PKey on local network containing lot of AVAX
 xKeychain.importKey("PrivateKey-ewoqjP7PxY4yr3iLTpLisriqt94hdyDFNgchSxGGztUrTXtNN")
 
 // Fetch all addresses (buffer format) linked to the Pkey
-const xAddresses: Buffer[] = avm.keyChain().getAddresses()
+const xAddresses: Buffer[] = avm.keyChain().getAddresses();
 
-// Readable format for address, debug purpose
+// Readable format for address
 const xAddressStrings: string[] = avm.keyChain().getAddressStrings()
 console.log(xAddressStrings)
 
@@ -96,7 +93,7 @@ const locktime: BN = new BN(0)
 const threshold: number = 1
 let ins: TransferableInput[] = []
 let outs: TransferableOutput[] = []
-const mstimeout: number = 5000
+const mstimeout: number = 2000
 
 async function createNewNFTAsset() {
     const assetID: Buffer = await avm.getAVAXAssetID()
@@ -112,7 +109,7 @@ async function createNewNFTAsset() {
     outs.push(transferableOutput)
 
     // We fetch the UTXOs of the current address
-    let {utxos: utxoSet} = await avm.getUTXOs([xAddressStrings[0]])
+    let {utxos: utxoSet} = await avm.getUTXOs(xAddressStrings)
 
     // Here we select one UTXO where there is enough AVAX to pay for the fee .
     let utxos: UTXO[] = utxoSet.getAllUTXOs().filter(u => u.getOutput().getTypeName() === 'SECPTransferOutput' && u.getOutput().getOutputID() === 7)
@@ -120,7 +117,7 @@ async function createNewNFTAsset() {
     for (let aUtxo of utxos) {
         let output: AmountOutput = aUtxo.getOutput() as AmountOutput
         let amt: BN = output.getAmount().clone()
-        if (amt > new BN(10000000)) {
+        if (amt > new BN(100000000)) {
             utxo = aUtxo
             break;
         }
@@ -145,7 +142,7 @@ async function createNewNFTAsset() {
     const groupID: number = 42
 
     // Create the groups
-    for (var i = 0; i < imgs.length; i++) {
+    for (var i = 0; i < 100; i++) {
         const minterSet: MinterSet = new MinterSet(1, xAddresses)
         // Threshold represent the number of signatures we need in order to mint a new asset .
         const nftMintOutput: NFTMintOutput = new NFTMintOutput(
@@ -165,26 +162,7 @@ async function createNewNFTAsset() {
     let id: string = await avm.issueTx(tx)
     console.log(id)
     await sleep(mstimeout)
-    return {
-        assetID,
-        result,
-        balance,
-        fee,
-        avaxAmount,
-        secpOutput,
-        transferableOutput,
-        utxo,
-        output,
-        amt,
-        txid,
-        outputidx,
-        secpInput,
-        transferableInput,
-        groupID,
-        unsignedTx,
-        tx,
-        id
-    };
+    return id;
 }
 
 async function mintNFT(assetID, fee, groupID: number, id: string, memo: Buffer) {
@@ -200,6 +178,7 @@ async function mintNFT(assetID, fee, groupID: number, id: string, memo: Buffer) 
     outs.push(transferableOutput)
 
     // ToDo Still no clue what 'groupID' represent exactly here .
+    console.log(`PAYLOAD - ${bintools.bufferToB58(memo)}`)
     const nftMintOperation: NFTMintOperation = new NFTMintOperation(groupID, memo, [new OutputOwners(xAddresses, locktime, threshold)])
     // We fetch the latest UTXOs for our addresses.
     let {utxos: utxoSet2} = await avm.getUTXOs(xAddressStrings)
@@ -248,30 +227,13 @@ async function mintNFT(assetID, fee, groupID: number, id: string, memo: Buffer) 
     let operationTx: OperationTx = new OperationTx(networkID, blockchainID, outs, ins, Buffer.from("AVHAT"), ops)
     let unsignedTx = new UnsignedTx(operationTx)
     let tx = unsignedTx.sign(xKeychain)
-    let mint_tx_id = await avm.issueTx(tx)
-    console.log(`MINT NFT TX ID ${mint_tx_id}`)
+    let mint_tx_id = await avm.issueTx(tx);
+    let tx_status = await avm.getTxStatus(mint_tx_id);
+    while (tx_status !== 'Accepted') {
+        tx_status = await avm.getTxStatus(mint_tx_id);
+    }
     await sleep(mstimeout)
-    return {
-        result,
-        balance,
-        avaxAmount,
-        secpOutput,
-        transferableOutput,
-        output,
-        amt,
-        txid,
-        outputidx,
-        secpInput,
-        transferableInput,
-        utxoids,
-        utxo,
-        out,
-        spenders,
-        operationTx,
-        unsignedTx,
-        tx,
-        mint_tx_id
-    };
+    return mint_tx_id;
 }
 
 async function transferNFT(assetID, fee, mint_tx_id) {
@@ -284,12 +246,13 @@ async function transferNFT(assetID, fee, mint_tx_id) {
     let secpOutput = new SECPTransferOutput(avaxAmount, xAddresses, locktime, threshold)
     let transferableOutput = new TransferableOutput(assetID, secpOutput)
     outs.push(transferableOutput)
-    let {utxos: utxoSet3} = await avm.getUTXOs(xAddressStrings)
+    let {utxos: utxoSet3} = await avm.getUTXOs(xAddressStrings, 'X', 1024)
     let utxos: UTXO[] = utxoSet3.getAllUTXOs().filter(u => u.getOutput().getTypeName() === 'SECPTransferOutput' && u.getOutput().getOutputID() === 7)
     let utxo: UTXO;
     for (let aUtxo of utxos) {
         let output: AmountOutput = aUtxo.getOutput() as AmountOutput
         let amt: BN = output.getAmount().clone()
+        // We select a UTXO with enough avax in it .
         if (amt > new BN(10000000)) {
             utxo = aUtxo
             break;
@@ -314,7 +277,7 @@ async function transferNFT(assetID, fee, mint_tx_id) {
     let spenders = out.getSpenders(xAddresses)
 
     // Address to which we will send the newly minted NFT
-    const xaddy: Buffer = bintools.stringToAddress("X-local1f9e2rm24ln9emufxlx6xhmcfu5ylev5lpahzyv")
+    const xaddy: Buffer = bintools.stringToAddress("X-local18jma8ppw3nhx5r4ap8clazz0dps7rv5u00z96u")
 
     const outbound: NFTTransferOutput = new NFTTransferOutput(
         out.getGroupID(), out.getPayload(), [xaddy], locktime, threshold,
@@ -333,6 +296,12 @@ async function transferNFT(assetID, fee, mint_tx_id) {
     let unsignedTx = new UnsignedTx(operationTx)
     let tx = unsignedTx.sign(xKeychain)
     let new_id = await avm.issueTx(tx)
+    let tx_status = await avm.getTxStatus(new_id);
+    while (tx_status !== 'Accepted') {
+        console.log(`Waiting for MintTx -- ${tx_status} -- ${new_id}`)
+        await sleep(mstimeout)
+        tx_status = await avm.getTxStatus(new_id);
+    }
     console.log(`TRF NFT TX ID ${new_id}`)
     await sleep(mstimeout)
 
@@ -344,23 +313,30 @@ const main = async (): Promise<any> => {
     // First we will create an asset for our NFT .
     // ===========================================
     let mintTxs = [];
-    let {assetID, fee, groupID, id} = await createNewNFTAsset();
+    const nft_id = await createNewNFTAsset();
+    const assetID: Buffer = await avm.getAVAXAssetID()
+    let trffee: BN = avm.getTxFee()
+    let fee: BN = avm.getCreationTxFee()
+    const groupID: number = 42
 
     // Now we can Mint our NFT .
     for (let memo of memos) {
         console.log('Minting a new NFT !!!!!');
-        let {mint_tx_id} = await mintNFT(assetID, fee, groupID, id, memo);
+        const mint_tx_id = await mintNFT(assetID, fee, groupID, nft_id, memo);
         mintTxs.push(mint_tx_id);
+        console.log(`MintNFTAsset tx id -- ${mint_tx_id}`)
     }
 
     for (let mintTx of mintTxs) {
         console.log('Now we can transfer it !!!!')
-        await transferNFT(assetID, fee, mintTx);
+        try {
+            await transferNFT(assetID, trffee, mintTx);
+        } catch (e) {
+            console.error(`Transfer of ${mintTx} failed .`)
+            console.error(e)
+        }
         console.log('============================== \n')
     }
-
-
-    // step 3 transfer NFT
 }
 
 main()
